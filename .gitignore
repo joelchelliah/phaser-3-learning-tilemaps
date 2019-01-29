@@ -1,0 +1,8 @@
+.DS_STORE
+
+.vscode
+
+build
+node_modules
+*.tsx
+package-lock.json
