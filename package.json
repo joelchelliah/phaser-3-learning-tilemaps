@@ -1,0 +1,8 @@
+{
+  "name": "phaser-3-learning-tilemaps",
+  "version": "1.0.0",
+  "description": "Learning how to use tilemaps in Phaser 3 by following a bunch of tutorials",
+  "main": "index.js",
+  "author": "Joel Chelliah",
+  "license": "MIT"
+}
