@@ -1,9 +1,10 @@
+/// <reference path="../../phaser.d.ts"/>
 
 import 'phaser'
 
 const config: GameConfig = {
-  width: 800,
-  height: 600,
+  width: 171,
+  height: 160,
   type: Phaser.AUTO,
   parent: 'game-container',
   physics: {
@@ -19,31 +20,36 @@ const config: GameConfig = {
     update: update,
   },
   backgroundColor: '#aa2b53',
+  zoom: 4, // Since we're working with 16x16 pixel tiles, let's scale up the canvas by 4x
+  render: { pixelArt: true, antialias: false, autoResize: false },
 }
 
 const game = new Phaser.Game(config)
 
 function preload() {
   // "this" === Phaser.Scene
-  this.load.image('repeating-background', '../assets/images/escheresque_dark.png')
+  // this.load.image('repeating-background', '../assets/images/escheresque_dark.png')
+  this.load.image('mario-tiles', '../static-maps/assets/tilesets/super-mario-tiles.png')
 }
 
 function create() {
-  // You can access the game's config to read the width & height
   const { width, height } = this.sys.game.config
-
-  // Creating a repeating background sprite
-  const bg = this.add.tileSprite(0, 0, width, height, 'repeating-background')
-  bg.setOrigin(0, 0)
-
-  // In v3, you can chain many methods, so you can create text and configure it in one "line"
-  this.add
-    .text(width / 2, height / 2, 'hello\nphaser 3\ntemplate', {
-      font: '100px monospace',
-      color: 'white',
-    })
-    .setOrigin(0.5, 0.5)
-    .setShadow(5, 5, '#5588EE', 0, true, true)
+  const level = [
+    [  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0 ],
+    [  0,   1,   2,   3,   0,   0,   0,   1,   2,   3,   0 ],
+    [  0,   5,   6,   7,   0,   0,   0,   5,   6,   7,   0 ],
+    [  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0 ],
+    [  0,   0,   0,  14,  13,  14,   0,   0,   0,   0,   0 ],
+    [  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0 ],
+    [  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0 ],
+    [  0,   0,  14,  14,  14,  14,  14,   0,   0,   0,  15 ],
+    [  0,   0,   0,   0,   0,   0,   0,   0,   0,  15,  15 ],
+    [ 35,  36,  37,   0,   0,   0,   0,   0,  15,  15,  15 ],
+    [ 39,  39,  39,  39,  39,  39,  39,  39,  39,  39,  39 ],
+  ]
+  const map = this.make.tilemap({ data: level, tileWidth: 16, tileHeight: 16 })
+  const tiles = map.addTilesetImage('mario-tiles')
+  const layer = map.createStaticLayer(0, tiles, 0, 0)
 }
 
 function update(time, delta) {
