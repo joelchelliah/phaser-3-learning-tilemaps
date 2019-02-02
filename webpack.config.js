@@ -3,8 +3,13 @@ var path = require('path')
 var pathToPhaser = path.join(__dirname, '/node_modules/phaser/')
 var phaser = path.join(pathToPhaser, 'dist/phaser.js')
 
+const entries = {
+  static: './static-maps/src/index.ts',
+  dynamic: './dynamic-maps/src/index.ts',
+}
+
 module.exports = {
-  entry: './static-maps/src/index.ts',
+  entry: entries.dynamic,
   output: {
     path: path.resolve(__dirname, 'build'),
     filename: 'index.js',
