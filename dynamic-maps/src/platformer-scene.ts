@@ -1,13 +1,26 @@
 
+import { Physics, Tilemaps, Input, Scene } from 'phaser'
+
 import Player from './player'
 import Marker from './marker'
-import { Physics, Tilemaps } from 'phaser'
 
-export default class PlatformerScene extends Phaser.Scene {
+type MapAndLayers = { 
+  map: Tilemaps.Tilemap, 
+  groundLayer: Tilemaps.DynamicTilemapLayer
+}
 
-  constructor() {
-    super({ key: 'PlatformerScene' })
-  }
+export default class PlatformerScene extends Scene {
+  private shiftKey: Input.Keyboard.Key
+  
+  private map: Tilemaps.Tilemap
+  private groundLayer: Tilemaps.DynamicTilemapLayer
+  private spikeGroup: Physics.Arcade.StaticGroup
+
+  private marker: Marker
+  private player: Player
+
+  private isPlayerDead: boolean = false
+  private debugEnabled: boolean = false
 
   preload(): void {
     const assetsPath = '../dynamic-maps/assets'
@@ -20,50 +33,20 @@ export default class PlatformerScene extends Phaser.Scene {
     this.load.tilemapTiledJSON('map', `${assetsPath}/tilemaps/platformer.json`)
   }
 
-  controls
-  shiftKey
-  map: Tilemaps.Tilemap
-  groundLayer: Tilemaps.DynamicTilemapLayer
-  spikeGroup: Physics.Arcade.StaticGroup
-
-  marker: Marker
-  player: Player
-
-  isPlayerDead: boolean = false
-  debugEnabled: boolean = false
-
   create(): void {
-    this.map = this.make.tilemap({ key: 'map' })
-    const tiles = this.map.addTilesetImage('0x72-industrial-tileset-32px-extruded', 'tiles')
+    const mapAndLayers = this.createMap()
 
-    this.map.createDynamicLayer('Background', tiles, 0, 0)
-    this.groundLayer = this.map.createDynamicLayer('Ground', tiles, 0, 0)
-    this.map.createDynamicLayer('Foreground', tiles,0 ,0)
+    this.isPlayerDead = false
+    this.player = this.createPlayer(mapAndLayers)
 
-    // Instantiate a player instance at the location of the "Spawn Point" object in the Tiled map.
-    // Note: instead of storing the player in a global variable, it's stored as a property of the
-    // scene.
-    const spawnPoint: any = this.map.findObject('Objects', obj => obj.name === 'Spawn Point')
-    console.log('creating player!')
-    this.player = new Player(this, spawnPoint.x, spawnPoint.y)
-    
-    // Collide the player against the ground layer - here we are grabbing the sprite property from
-    // the player (since the Player class is not a Phaser.Sprite).
-    this.groundLayer.setCollisionByProperty({ collides: true })
-    this.physics.add.collider(this.player.sprite, this.groundLayer)
+    this.map = mapAndLayers.map
+    this.groundLayer = mapAndLayers.groundLayer
 
-    // The map contains a row of spikes. The spike only take a small sliver of the tile graphic, so
-    // if we let arcade physics treat the spikes as colliding, the player will collide while the
-    // sprite is hovering over the spikes. We'll remove the spike tiles and turn them into sprites
-    // so that we give them a more fitting hitbox.
     this.spikeGroup = this.physics.add.staticGroup()
     this.groundLayer.forEachTile(tile => {
       if(tile.index === 77) {
-        // A sprite has its origin at the center, so place the sprite at the center of the tile
         const spike = this.spikeGroup.create(tile.getCenterX(), tile.getCenterY(), 'spike')
 
-        // The map has spike tiles that have been rotated in Tiled ("z" key), so parse out that angle
-        // to the correct body placement
         spike.rotation = tile.rotation
         if (spike.angle === 0) spike.body.setSize(32, 6).setOffset(0, 26)
         else if (spike.angle === -90) spike.body.setSize(6, 32).setOffset(26, 0)
@@ -96,6 +79,27 @@ export default class PlatformerScene extends Phaser.Scene {
     console.log('marker :', this.marker)
 
     this.setUpHelpfulText(this)
+  }
+
+  createPlayer({map, groundLayer}: MapAndLayers): Player {
+    const {x, y}: any = map.findObject('Objects', obj => obj.name === 'Spawn Point')
+    const player = new Player(this, x, y)
+
+    this.physics.add.collider(player.sprite, groundLayer)
+    return player
+  }
+  
+  createMap(): MapAndLayers {
+    const map = this.make.tilemap({ key: 'map' })
+    const tiles = map.addTilesetImage('0x72-industrial-tileset-32px-extruded', 'tiles')
+
+    map.createDynamicLayer('Background', tiles, 0, 0)
+    const groundLayer = map.createDynamicLayer('Ground', tiles, 0, 0)
+    map.createDynamicLayer('Foreground', tiles, 0 ,0)
+    
+    groundLayer.setCollisionByProperty({ collides: true })
+
+    return { map, groundLayer }
   }
 
   setUpHelpfulText({add}): void {

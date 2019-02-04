@@ -10,7 +10,7 @@ const config: GameConfig = {
   parent: 'game-container',
   width: 800,
   height: 600,
-  render: { pixelArt: false, antialias: false, autoResize: false },
+  render: { pixelArt: true, antialias: false, autoResize: false },
   backgroundColor: '#1d212d',
   scene: PlatformerScene,
   physics: {
