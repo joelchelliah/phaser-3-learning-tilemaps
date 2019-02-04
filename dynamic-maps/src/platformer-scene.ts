@@ -1,12 +1,15 @@
 
-import { Physics, Tilemaps, Input, Scene } from 'phaser'
+import { 
+  Physics, Tilemaps, Input, Scene, Display,
+} from 'phaser'
 
 import Player from './player'
 import Marker from './marker'
 
 type MapAndLayers = { 
   map: Tilemaps.Tilemap, 
-  groundLayer: Tilemaps.DynamicTilemapLayer
+  groundLayer: Tilemaps.DynamicTilemapLayer,
+  spikeGroup: Physics.Arcade.StaticGroup,
 }
 
 export default class PlatformerScene extends Scene {
@@ -41,44 +44,43 @@ export default class PlatformerScene extends Scene {
 
     this.map = mapAndLayers.map
     this.groundLayer = mapAndLayers.groundLayer
+    this.spikeGroup = mapAndLayers.spikeGroup
 
-    this.spikeGroup = this.physics.add.staticGroup()
-    this.groundLayer.forEachTile(tile => {
+    this.cameras.main.startFollow(this.player.sprite)
+    this.cameras.main.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels)
+
+    this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT)
+    this.marker = new Marker(this, this.map)
+
+    this.setUpHelpfulText(this)
+    this.createDebugger(mapAndLayers)
+  }
+
+  createMap(): MapAndLayers {
+    const map = this.make.tilemap({ key: 'map' })
+    const tiles = map.addTilesetImage('0x72-industrial-tileset-32px-extruded', 'tiles')
+
+    map.createDynamicLayer('Background', tiles, 0, 0)
+    const groundLayer = map.createDynamicLayer('Ground', tiles, 0, 0)
+    map.createDynamicLayer('Foreground', tiles, 0 ,0)
+
+    groundLayer.setCollisionByProperty({ collides: true })
+
+    const spikeGroup = this.physics.add.staticGroup()
+    groundLayer.forEachTile(tile => {
       if(tile.index === 77) {
-        const spike = this.spikeGroup.create(tile.getCenterX(), tile.getCenterY(), 'spike')
+        const spike = spikeGroup.create(tile.getCenterX(), tile.getCenterY(), 'spike')
 
         spike.rotation = tile.rotation
         if (spike.angle === 0) spike.body.setSize(32, 6).setOffset(0, 26)
         else if (spike.angle === -90) spike.body.setSize(6, 32).setOffset(26, 0)
         else if (spike.angle === 90) spike.body.setSize(6, 32).setOffset(0, 0)
 
-        this.groundLayer.removeTileAt(tile.x, tile.y)
+        groundLayer.removeTileAt(tile.x, tile.y)
       }
     })
 
-    this.cameras.main.startFollow(this.player.sprite)
-    this.cameras.main.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels)
-
-    if (this.debugEnabled) {
-      const graphicsDebug = this.add
-        .graphics()
-        .setAlpha(0.5)
-        .setDepth(20)
-
-        this.groundLayer.renderDebug(graphicsDebug, {
-          tileColor: null, // Color of non-colliding tiles
-          collidingTileColor: new Phaser.Display.Color(243, 134, 48, 255), // Color of colliding tiles
-          faceColor: new Phaser.Display.Color(40, 39, 37, 255), // Color of colliding face edges
-        })
-    }
-
-    this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT)
-    console.log('creating marker!')
-    console.log('marker :', this.marker)
-    this.marker = new Marker(this, this.map)
-    console.log('marker :', this.marker)
-
-    this.setUpHelpfulText(this)
+    return { map, groundLayer, spikeGroup }
   }
 
   createPlayer({map, groundLayer}: MapAndLayers): Player {
@@ -87,19 +89,6 @@ export default class PlatformerScene extends Scene {
 
     this.physics.add.collider(player.sprite, groundLayer)
     return player
-  }
-  
-  createMap(): MapAndLayers {
-    const map = this.make.tilemap({ key: 'map' })
-    const tiles = map.addTilesetImage('0x72-industrial-tileset-32px-extruded', 'tiles')
-
-    map.createDynamicLayer('Background', tiles, 0, 0)
-    const groundLayer = map.createDynamicLayer('Ground', tiles, 0, 0)
-    map.createDynamicLayer('Foreground', tiles, 0 ,0)
-    
-    groundLayer.setCollisionByProperty({ collides: true })
-
-    return { map, groundLayer }
   }
 
   setUpHelpfulText({add}): void {
@@ -110,6 +99,21 @@ export default class PlatformerScene extends Scene {
       padding: { x: 20, y: 10 },
       backgroundColor: '#ffffff',
     }).setScrollFactor(0)
+  }
+
+  createDebugger({groundLayer}: MapAndLayers): void {
+    if (this.debugEnabled) {
+      const graphicsDebug = this.add
+        .graphics()
+        .setAlpha(0.5)
+        .setDepth(20)
+
+        groundLayer.renderDebug(graphicsDebug, {
+          tileColor: null,
+          collidingTileColor: new Display.Color(243, 134, 48, 255),
+          faceColor: new Display.Color(40, 39, 37, 255),
+        })
+    }
   }
 
   update(time, delta): void {
