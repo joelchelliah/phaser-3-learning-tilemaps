@@ -11,6 +11,12 @@ export default class Player {
     this.createAnimations()
     this.createSprite(x, y)
     this.setUpKeyboardControls()
+
+    this.sprite.body.enable = true
+  }
+
+  freeze() {
+    this.sprite.body.enable = false
   }
 
   update() {

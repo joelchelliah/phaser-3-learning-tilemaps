@@ -1,5 +1,7 @@
 
 import Player from './player'
+import Marker from './marker'
+import { Physics, Tilemaps } from 'phaser'
 
 export default class PlatformerScene extends Phaser.Scene {
 
@@ -13,31 +15,36 @@ export default class PlatformerScene extends Phaser.Scene {
     const frameConfig = { frameWidth: 32, frameHeight: 32, margin: 1, spacing: 2 }
 
     this.load.spritesheet('player', spriteImage, frameConfig)
+    this.load.image('spike', `${assetsPath}/images/0x72-industrial-spike.png`)
     this.load.image('tiles', `${assetsPath}/tilesets/0x72-industrial-tileset-32px-extruded.png`)
     this.load.tilemapTiledJSON('map', `${assetsPath}/tilemaps/platformer.json`)
   }
 
   controls
-  marker
   shiftKey
-  map
-  groundLayer: Phaser.Tilemaps.DynamicTilemapLayer
-  spikeGroup: Phaser.Physics.Arcade.StaticGroup
+  map: Tilemaps.Tilemap
+  groundLayer: Tilemaps.DynamicTilemapLayer
+  spikeGroup: Physics.Arcade.StaticGroup
+
+  marker: Marker
   player: Player
+
+  isPlayerDead: boolean = false
   debugEnabled: boolean = false
 
   create(): void {
     this.map = this.make.tilemap({ key: 'map' })
     const tiles = this.map.addTilesetImage('0x72-industrial-tileset-32px-extruded', 'tiles')
 
-    this.map.createDynamicLayer('Background', tiles)
-    this.groundLayer = this.map.createDynamicLayer('Ground', tiles)
-    this.map.createDynamicLayer('Foreground', tiles)
+    this.map.createDynamicLayer('Background', tiles, 0, 0)
+    this.groundLayer = this.map.createDynamicLayer('Ground', tiles, 0, 0)
+    this.map.createDynamicLayer('Foreground', tiles,0 ,0)
 
     // Instantiate a player instance at the location of the "Spawn Point" object in the Tiled map.
     // Note: instead of storing the player in a global variable, it's stored as a property of the
     // scene.
-    const spawnPoint = this.map.findObject('Objects', obj => obj.name === 'Spawn Point')
+    const spawnPoint: any = this.map.findObject('Objects', obj => obj.name === 'Spawn Point')
+    console.log('creating player!')
     this.player = new Player(this, spawnPoint.x, spawnPoint.y)
     
     // Collide the player against the ground layer - here we are grabbing the sprite property from
@@ -45,19 +52,15 @@ export default class PlatformerScene extends Phaser.Scene {
     this.groundLayer.setCollisionByProperty({ collides: true })
     this.physics.add.collider(this.player.sprite, this.groundLayer)
 
-    this.cameras.main.startFollow(this.player.sprite)
-    this.cameras.main.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels)
-    
-    // Create a physics group - useful for colliding the player against all the spikes
+    // The map contains a row of spikes. The spike only take a small sliver of the tile graphic, so
+    // if we let arcade physics treat the spikes as colliding, the player will collide while the
+    // sprite is hovering over the spikes. We'll remove the spike tiles and turn them into sprites
+    // so that we give them a more fitting hitbox.
     this.spikeGroup = this.physics.add.staticGroup()
-
-    // Loop over each Tile and replace spikes (tile index 77) with custom sprites
     this.groundLayer.forEachTile(tile => {
       if(tile.index === 77) {
         // A sprite has its origin at the center, so place the sprite at the center of the tile
-        const x = tile.getCenterX()
-        const y = tile.getCenterY()
-        const spike = this.spikeGroup.create(x, y, 'spike')
+        const spike = this.spikeGroup.create(tile.getCenterX(), tile.getCenterY(), 'spike')
 
         // The map has spike tiles that have been rotated in Tiled ("z" key), so parse out that angle
         // to the correct body placement
@@ -66,10 +69,12 @@ export default class PlatformerScene extends Phaser.Scene {
         else if (spike.angle === -90) spike.body.setSize(6, 32).setOffset(26, 0)
         else if (spike.angle === 90) spike.body.setSize(6, 32).setOffset(0, 0)
 
-        // And lastly, remove the spike tile from the layer
         this.groundLayer.removeTileAt(tile.x, tile.y)
       }
     })
+
+    this.cameras.main.startFollow(this.player.sprite)
+    this.cameras.main.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels)
 
     if (this.debugEnabled) {
       const graphicsDebug = this.add
@@ -85,18 +90,12 @@ export default class PlatformerScene extends Phaser.Scene {
     }
 
     this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT)
+    console.log('creating marker!')
+    console.log('marker :', this.marker)
+    this.marker = new Marker(this, this.map)
+    console.log('marker :', this.marker)
 
-    this.setUpMarkerGraphics(this)
     this.setUpHelpfulText(this)
-  }
-
-  setUpMarkerGraphics({add}): void {
-    // Create a simple graphic that can be used to show which tile the mouse is over
-    this.marker = add.graphics()
-    this.marker.lineStyle(5, 0xffffff, 1)
-    this.marker.strokeRect(0, 0, this.map.tileWidth, this.map.tileHeight)
-    this.marker.lineStyle(3, 0xff4f99, 1)
-    this.marker.strokeRect(0, 0, this.map.tileWidth, this.map.tileHeight)
   }
 
   setUpHelpfulText({add}): void {
@@ -110,30 +109,18 @@ export default class PlatformerScene extends Phaser.Scene {
   }
 
   update(time, delta): void {
+    if (this.isPlayerDead) return
+
     // Convert the mouse position to world position within the camera
     const { x, y }: any = this.input.activePointer.positionToCamera(this.cameras.main)
 
-    this.updateMarker(x, y)
-    this.drawTiles(x, y)
-
-    // Allow the player to respond to key presses and move itself
     this.player.update()
-
-    if (this.player.sprite.y > this.groundLayer.height) {
-      this.player.destroy()
-      this.scene.restart()
-    }
+    this.marker.update(x, y)
+    this.drawTile(x, y)
+    this.handlePlayerDeath()
   }
 
-  updateMarker(x: number, y: number): void {
-    // Place the marker in world space, but snap it to the tile grid. If we convert world -> tile and
-    // then tile -> world, we end up with the position of the tile under the pointer
-    const { x: pointerX, y: pointerY } = this.groundLayer.worldToTileXY(x, y)
-    const { x: snappedX, y: snappedY } = this.groundLayer.tileToWorldXY(pointerX, pointerY)
-    this.marker.setPosition(snappedX, snappedY)
-  }
-
-  drawTiles(x: number, y: number): void {
+  drawTile(x: number, y: number): void {
     // Draw tiles (only within the groundLayer)
     const pointer = this.input.activePointer
 
@@ -143,6 +130,29 @@ export default class PlatformerScene extends Phaser.Scene {
         const tile = this.groundLayer.putTileAtWorldXY(6, x, y)
         tile.setCollision(true)
       }
+    }
+  }
+
+  handlePlayerDeath(): void {
+    // @ts-ignore: Whining about ArcadeColliderType
+    const isPlayerOnSpikes = this.physics.world.overlap(this.player.sprite, this.spikeGroup)
+    const isPlayerBelowScreen = this.player.sprite.y > this.groundLayer.height
+
+    if (isPlayerOnSpikes || isPlayerBelowScreen) {
+      // Flag that the player is dead so that we can stop update from running in the future
+      this.isPlayerDead = true
+
+      // Freeze the player to leave them on screen while fading but remove the marker immediately
+      this.player.freeze()
+      this.marker.destroy()
+
+      const cam = this.cameras.main
+      cam.shake(100, 0.05)
+      cam.fade(250, 0, 0, 0)
+      cam.once('camerafadeoutcomplete', () => {
+        this.player.destroy()
+        this.scene.restart()
+      })
     }
   }
 }
