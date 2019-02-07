@@ -1,4 +1,3 @@
-var HtmlWebpackPlugin = require('html-webpack-plugin')
 var path = require('path')
 var pathToPhaser = path.join(__dirname, '/node_modules/phaser/')
 var phaser = path.join(pathToPhaser, 'dist/phaser.js')
@@ -6,15 +5,15 @@ var phaser = path.join(pathToPhaser, 'dist/phaser.js')
 const entries = {
   static: './static-maps/src/index.ts',
   dynamic: './dynamic-maps/src/index.ts',
+  procedural: './procedural-maps/src/index.ts',
 }
 
 module.exports = {
-  entry: entries.dynamic,
+  entry: entries.procedural,
   output: {
     path: path.resolve(__dirname, 'build'),
     filename: 'index.js',
   },
-  plugins: [new HtmlWebpackPlugin()],
   module: {
     rules: [{
         test: /\.ts$/,
@@ -37,7 +36,7 @@ module.exports = {
   resolve: {
     extensions: ['.ts', '.js'],
     alias: {
-      phaser: phaser,
+      phaser,
     },
   },
 }

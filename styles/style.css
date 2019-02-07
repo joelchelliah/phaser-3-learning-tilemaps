@@ -12,3 +12,14 @@ html, body, #game-container {
 #game-container>canvas {
   border-radius: 5px;
 }
+
+.dungeon {
+  border-radius: 10px;
+  font-family: 'Space Mono', monospace;
+  padding: 20px;
+  margin: 20px;
+  border: 10px solid #e2e2e2;
+  background-color: #fefefe;
+  font-size: 15px;
+  line-height: 0.7;
+}
